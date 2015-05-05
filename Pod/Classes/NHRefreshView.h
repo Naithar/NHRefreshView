@@ -13,9 +13,11 @@ typedef NS_ENUM(NSUInteger, NHRefreshViewDirection) {
     NHRefreshViewDirectionBottom,
 };
 
-typedef void(^NHRefreshBlock)(void);
+
 
 @class NHRefreshView;
+
+typedef void(^NHRefreshBlock)(NHRefreshView* refreshView);
 
 @protocol NHRefreshViewDelegate <NSObject>
 
@@ -24,11 +26,12 @@ typedef void(^NHRefreshBlock)(void);
 
 @end
 
-@interface NHRefreshView : UIView
+@interface NHRefreshView : NSObject
 
 @property (nonatomic, weak) id<NHRefreshViewDelegate> delegate;
 
 @property (nonatomic, readonly, weak) UIScrollView *scrollView;
+@property (nonatomic, readonly, strong) UIView *containerView;
 @property (nonatomic, readonly, strong) UIImageView *imageView;
 
 @property (nonatomic, assign) CGFloat maxOffset;
@@ -51,4 +54,7 @@ typedef void(^NHRefreshBlock)(void);
 - (instancetype)initWithScrollView:(UIScrollView*)scrollView
                          direction:(NHRefreshViewDirection)direction
                       refreshBlock:(NHRefreshBlock)refreshBlock;
+
+
+- (void)stopRefreshing;
 @end
