@@ -20,22 +20,40 @@
 
 @property (nonatomic, assign) BOOL refreshPossible;
 @property (nonatomic, assign) BOOL refreshing;
+
+@property (nonatomic, assign) UIEdgeInsets refreshViewInsets;
 @end
 
 @implementation NHRefreshView
 
 - (instancetype)initWithScrollView:(UIScrollView*)scrollView {
     return [self initWithScrollView:scrollView
-                          direction:NHRefreshViewDirectionTop];
+                       refreshBlock:nil];
 }
-- (instancetype)initWithScrollView:(UIScrollView*)scrollView
+
+- (instancetype)initWithScrollView:(UIScrollView *)scrollView
+                      refreshBlock:(NHRefreshBlock)refreshBlock {
+    return [self initWithScrollView:scrollView
+                          direction:NHRefreshViewDirectionTop
+                       refreshBlock:refreshBlock];
+}
+
+- (instancetype)initWithScrollView:(UIScrollView *)scrollView
                          direction:(NHRefreshViewDirection)direction {
+    return [self initWithScrollView:scrollView
+                          direction:direction
+                       refreshBlock:nil];
+}
+
+- (instancetype)initWithScrollView:(UIScrollView*)scrollView
+                         direction:(NHRefreshViewDirection)direction
+                      refreshBlock:(NHRefreshBlock)refreshBlock {
     self = [super initWithFrame:CGRectZero];
 
     if (self) {
         _scrollView = scrollView;
         _direction = direction;
-        _maxOffset = 100;
+        _refreshBlock = refreshBlock;
         [self commonInit];
     }
 
@@ -43,6 +61,12 @@
 }
 
 - (void)commonInit {
+
+    _maxOffset = 100;
+    _refreshOffset = 80;
+    _animationDuration = 0.75;
+    _initialScrollViewInsets = self.scrollView.contentInset;
+    _refreshViewInsets = UIEdgeInsetsZero;
 
     [self setTranslatesAutoresizingMaskIntoConstraints:NO];
     
@@ -203,7 +227,7 @@
 
     CABasicAnimation *animation = [CABasicAnimation animationWithKeyPath:@"transform.rotation.z"];
     animation.toValue = @(M_PI * 2.0f);
-    animation.duration = 0.75;
+    animation.duration = _animationDuration;
     animation.removedOnCompletion = NO;
     animation.cumulative = YES;
     animation.repeatCount = HUGE;
@@ -226,14 +250,37 @@
     BOOL bouncePreviousValue = self.scrollView.bounces;
     self.scrollView.bounces = NO;
 
+    UIEdgeInsets insets = self.initialScrollViewInsets;
+    self.refreshViewInsets = UIEdgeInsetsMake((self.direction == NHRefreshViewDirectionTop)
+                                              ? self.refreshOffset
+                                              : 0, 0,
+                                              (self.direction == NHRefreshViewDirectionBottom)
+                                              ? self.refreshOffset
+                                              : 0, 0);
+
+    BOOL refreshValue = YES;
+    __weak __typeof(self) weakSelf = self;
+
+    if ([weakSelf.delegate respondsToSelector:@selector(refreshView:shouldChangeInsetsForScrollView:withValue:)]) {
+        refreshValue = [weakSelf.delegate refreshView:weakSelf
+                      shouldChangeInsetsForScrollView:weakSelf.scrollView
+                                            withValue:weakSelf.refreshViewInsets];
+    }
+
+    if (!refreshValue) {
+        self.scrollView.bounces = bouncePreviousValue;
+        return;
+    }
+
+    insets.top += self.refreshViewInsets.top;
+    insets.bottom += self.refreshViewInsets.bottom;
+
     if (self.direction == NHRefreshViewDirectionTop) {
         [UIView animateWithDuration:0.3
                               delay:0
                             options:UIViewAnimationOptionBeginFromCurrentState
                          animations:^{
-                             UIEdgeInsets inset = self.scrollView.contentInset;
-                             inset.top = 80;
-                             self.scrollView.contentInset = inset;
+                             self.scrollView.contentInset = insets;
                              [self.superview layoutIfNeeded];
                          } completion:^(BOOL finished) {
                              self.scrollView.bounces = bouncePreviousValue;
@@ -255,17 +302,29 @@
     self.refreshPossible = NO;
     self.refreshing = NO;
 
+    BOOL refreshValue = YES;
+    __weak __typeof(self) weakSelf = self;
+
+    if ([weakSelf.delegate respondsToSelector:@selector(refreshView:shouldChangeInsetsForScrollView:withValue:)]) {
+        refreshValue = [weakSelf.delegate refreshView:weakSelf
+                      shouldChangeInsetsForScrollView:weakSelf.scrollView
+                                            withValue:UIEdgeInsetsZero];
+    }
+
+    if (!refreshValue) {
+        return;
+    }
+
     if (self.direction == NHRefreshViewDirectionTop) {
         if (self.scrollView.contentInset.top == 0) {
             return;
         }
+
         [UIView animateWithDuration:0.3
                               delay:0
                             options:UIViewAnimationOptionBeginFromCurrentState
                          animations:^{
-                             UIEdgeInsets inset = self.scrollView.contentInset;
-                             inset.top = 0;
-                             self.scrollView.contentInset = inset;
+                             self.scrollView.contentInset = self.initialScrollViewInsets;
                              [self.superview layoutIfNeeded];
                              self.hidden = NO;
                          } completion:^(BOOL finished) {
@@ -279,12 +338,9 @@
 }
 
 - (void)performRefresh {
-    NSLog(@"refresh");
-    __weak __typeof(self) weakSelf = self;
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        __strong __typeof(weakSelf) strongSelf = weakSelf;
-        [strongSelf stopRefreshing];
-    });
+    if (self.refreshBlock) {
+        self.refreshBlock();
+    }
 }
 
 - (void)dealloc {
@@ -292,309 +348,3 @@
 }
 
 @end
-
-
-////
-////  SKRefreshView.swift
-////  Shake-IOS
-////
-////  Created by Naithar on 29.08.14.
-////  Copyright (c) 2014 ITC-Project. All rights reserved.
-////
-//
-//import UIKit
-//
-//@objc
-//public class SKRefreshView: NSObject {
-//
-//    let imageViewHeight : CGFloat = 29
-//    let imageName = "loading-red.png"
-//
-//    weak var scrollViewSuperview : UIScrollView!
-//    weak var scrollViewDelegate : NSObject!
-//    var loadingViewSuperview : UIView!
-//    var loadingImageView : UIImageView!
-//    var heightConstraint : NSLayoutConstraint!
-//    var originalTopInset : CGFloat = 0
-//    var originalBottomInset : CGFloat = 0
-//
-//    func resetInsetsOnOriginalInset() -> Bool {
-//
-//        if self.isBottom
-//            && self.waitingForResults
-//            && self.onceToken != 0 {
-//                self.scrollViewSuperview.contentInset.bottom = max(self.scrollViewSuperview.bounds.height - self.scrollViewSuperview.contentSize.height + self.loadingOffset, self.originalBottomInset + self.loadingOffset)
-//                return true
-//            }
-//
-//        return false
-//    }
-//
-//    var isBottom : Bool = false
-//
-//    var maxOffset : CGFloat = 80
-//    var loadingOffset : CGFloat = 80
-//
-//    var refreshing : Bool = false
-//
-//    var refreshAction : (() -> ())?
-//
-//    private var onceToken : dispatch_once_t = 0
-//    var waitingForResults : Bool = false
-//
-//    convenience init(scrollView: UIScrollView!, delegate: NSObject!, isBottom : Bool = false, refreshBlock: (() -> ())?) {
-//        self.init(scrollView: scrollView, delegate: delegate, isBottom: isBottom)
-//
-//        self.refreshAction = refreshBlock
-//    }
-//
-//    init(scrollView: UIScrollView!, delegate: NSObject!, isBottom : Bool = false) {
-//
-//        super.init()
-//
-//        self.isBottom = isBottom
-//
-//        self.loadingViewSuperview = UIView(
-//                                           frame: CGRect(
-//                                                         x: 0,
-//                                                         y: !isBottom ? -(scrollView.contentInset.top+self.imageViewHeight) : max(scrollView.bounds.height - scrollView.contentInset.bottom, scrollView.contentSize.height),
-//                                                         width: scrollView.frame.width,
-//                                                         height: self.imageViewHeight))
-//
-//        self.loadingImageView = UIImageView(image: UIImage(named: self.imageName))
-//        self.loadingImageView.contentMode = .Center;
-//        self.loadingImageView.frame.size = CGSize(width: self.imageViewHeight, height: self.imageViewHeight)
-//        self.loadingViewSuperview.clipsToBounds = true
-//
-//        self.loadingViewSuperview.addSubview(self.loadingImageView)
-//        self.loadingViewSuperview.backgroundColor = UIColor.clearColor()
-//        scrollView.addSubview(self.loadingViewSuperview)
-//
-//        self.scrollViewSuperview = scrollView
-//
-//        self.originalTopInset = self.scrollViewSuperview.contentInset.top
-//        self.originalBottomInset = self.scrollViewSuperview.contentInset.bottom
-//
-//        RACObserve(self.scrollViewSuperview, "contentOffset").subscribeNext { (data: AnyObject!) -> Void in
-//            self.scrollViewDidScroll(self.scrollViewSuperview)
-//        }
-//
-//        self.scrollViewDelegate = delegate
-//        self.scrollViewDelegate.rac_signalForSelector("scrollViewDidEndDragging:willDecelerate:", fromProtocol: NSProtocolFromString("UIScrollViewDelegate")).subscribeNext { (data: AnyObject!) -> Void in
-//            self.scrollViewDidEndDragging(data[0] as UIScrollView)
-//        }
-//    }
-//
-//    func updateTopRefreshView(scrollView: UIScrollView!) -> CGFloat {
-//
-//        var offsetValue = scrollView.contentOffset.y + self.originalTopInset
-//        self.loadingViewSuperview.center.x = scrollView.bounds.width / 2
-//        self.loadingViewSuperview.frame.size.height = max(self.imageViewHeight, self.imageViewHeight - offsetValue)
-//        self.loadingViewSuperview.frame.origin.y = -(self.loadingViewSuperview.frame.height+self.originalTopInset)
-//        self.loadingViewSuperview.frame.size.width = scrollView.frame.width
-//
-//        self.loadingImageView.center = CGPoint(
-//                                               x: self.loadingViewSuperview.bounds.width / 2,
-//                                               y: self.loadingViewSuperview.bounds.height / 2 + self.imageViewHeight / 2)
-//        return offsetValue
-//    }
-//
-//    func updateBottomRefreshView(scrollView: UIScrollView) -> CGFloat {
-//        self.loadingViewSuperview.center.x = scrollView.bounds.width / 2
-//        var offsetValue = (scrollView.contentOffset.y + scrollView.bounds.height) - max(scrollView.bounds.height, scrollView.contentSize.height + self.originalBottomInset)
-//
-//        self.loadingViewSuperview.frame.size.height = max(self.imageViewHeight, self.imageViewHeight + offsetValue)
-//        self.loadingViewSuperview.frame.origin.y = max(scrollView.bounds.height - self.originalBottomInset, scrollView.contentSize.height)
-//        self.loadingViewSuperview.frame.size.width = scrollView.bounds.width
-//
-//        self.loadingImageView.center = CGPoint(
-//                                               x: self.loadingViewSuperview.bounds.width / 2,
-//                                               y: self.loadingViewSuperview.bounds.height / 2 - self.imageViewHeight / 2)
-//
-//        return offsetValue
-//    }
-//
-//    func scrollViewDidScroll(scrollView: UIScrollView!) {
-//        if !self.isBottom
-//            && scrollView.contentOffset.y < 0
-//            && scrollView.isEqual(self.loadingViewSuperview.superview) {
-//
-//                var offsetValue = self.updateTopRefreshView(scrollView)
-//
-//                if !self.loadingImageView.layer.animationForKey("rotationAnimation") {
-//                    var scrollValue = (-Double(self.maxOffset) - Double(offsetValue)) / Double(self.maxOffset)
-//                    var anglePart : Double = scrollValue * M_PI * 2
-//                    self.loadingImageView.transform = CGAffineTransformMakeRotation( CGFloat(anglePart) )
-//
-//                    self.loadingImageView.alpha = CGFloat(1.0 + scrollValue)
-//                }
-//
-//                if offsetValue < -self.maxOffset
-//                    && scrollView.contentInset.top == self.originalTopInset {
-//                        if !self.refreshing {
-//                            self.startRefreshing()
-//                        }
-//                    }
-//            }
-//
-//        if self.isBottom
-//            && scrollView.contentOffset.y > 0
-//            && scrollView.isEqual(self.loadingViewSuperview.superview) {
-//
-//                var offsetValue = self.updateBottomRefreshView(scrollView)
-//
-//                if !self.loadingImageView.layer.animationForKey("rotationAnimation") {
-//                    var scrollValue = (-Double(self.maxOffset) + Double(offsetValue)) / Double(self.maxOffset)
-//                    var anglePart : Double = scrollValue * M_PI * 2
-//                    self.loadingImageView.transform = CGAffineTransformMakeRotation( CGFloat(anglePart) )
-//                    self.loadingImageView.alpha = CGFloat(1.0 + scrollValue)
-//                }
-//
-//                if offsetValue > self.maxOffset
-//                    && scrollView.contentInset.bottom == self.originalBottomInset {
-//                        if !self.refreshing {
-//                            self.startRefreshing()
-//                        }
-//                    }
-//
-//            }
-//
-//        if !self.isBottom
-//            && scrollView.contentOffset.y >= 0
-//            && scrollView.isEqual(self.loadingViewSuperview.superview)
-//            && !!self.loadingImageView.layer.animationForKey("rotationAnimation")
-//            && self.onceToken == 0 {
-//                self.stopRefreshing()
-//            }
-//
-//        if self.isBottom
-//            && scrollView.contentOffset.y <= max(0, scrollView.contentSize.height - scrollView.bounds.height + self.originalBottomInset)
-//            && scrollView.isEqual(self.loadingViewSuperview.superview)
-//            && !!self.loadingImageView.layer.animationForKey("rotationAnimation")
-//            && self.onceToken == 0 {
-//                self.stopRefreshing()
-//            }
-//    }
-//
-//    func scrollViewDidEndDragging(scrollView: UIScrollView!) {
-//        if !self.isBottom &&
-//            !!self.loadingImageView.layer.animationForKey("rotationAnimation")
-//            && self.refreshing
-//            && scrollView.contentInset.top == self.originalTopInset
-//            && scrollView.isEqual(self.loadingViewSuperview.superview)
-//            && self.updateTopRefreshView(scrollView) <= self.loadingOffset {
-//
-//                dispatch_once(&self.onceToken) {
-//                    self.waitingForResults = true
-//                    scrollView.bounces = false
-//                    UIView.animateWithDuration(
-//                                               0.3,
-//                                               delay: 0,
-//                                               options: UIViewAnimationOptions.BeginFromCurrentState|UIViewAnimationOptions.AllowUserInteraction,
-//                                               animations: {
-//                                                   scrollView.contentInset.top = self.originalTopInset + self.loadingOffset
-//                                                   scrollView.contentOffset.y = -(self.originalTopInset + self.loadingOffset)
-//                                               }, completion: {
-//                                                   _ in
-//
-//                                                   scrollView.bounces = true
-//                                                   self.updateTopRefreshView(scrollView)
-//                                                   dispatch_after(dispatch_get_time(0.15), dispatch_get_main_queue()) {
-//                                                       //                                if self.refreshing {
-//                                                       self.refreshAction?()
-//                                                       //                                }
-//
-//                                                       return
-//                                                   }
-//                                                   return
-//                                               })
-//                }
-//            }
-//
-//        if self.isBottom &&
-//            !!self.loadingImageView.layer.animationForKey("rotationAnimation")
-//            && self.refreshing
-//            && scrollView.contentInset.bottom == self.originalBottomInset
-//            && scrollView.isEqual(self.loadingViewSuperview.superview)
-//            && self.updateBottomRefreshView(scrollView) >= self.loadingOffset {
-//                dispatch_once(&self.onceToken) {
-//                    self.waitingForResults = true
-//                    scrollView.bounces = false
-//                    UIView.animateWithDuration(
-//                                               0.3,
-//                                               delay: 0,
-//                                               options: UIViewAnimationOptions.BeginFromCurrentState|UIViewAnimationOptions.AllowUserInteraction,
-//                                               animations: {
-//                                                   scrollView.contentInset.bottom = max(scrollView.bounds.height - scrollView.contentSize.height + self.loadingOffset, self.originalBottomInset + self.loadingOffset)
-//                                                   //                            self.updateBottomRefreshView(scrollView)
-//                                               }, completion: {
-//                                                   _ in
-//
-//                                                   scrollView.bounces = true
-//                                                   self.updateBottomRefreshView(scrollView)
-//                                                   dispatch_after(dispatch_get_time(0.15), dispatch_get_main_queue()) {
-//
-//                                                       //                                if self.refreshing {
-//                                                       self.refreshAction?()
-//                                                       //                                }
-//
-//                                                       return
-//                                                   }
-//                                                   return
-//                                               })
-//                    
-//                    
-//                }
-//            }
-//    }
-//    
-//    func stopRefreshing() {
-//        
-//        //        //NSLog("self = \(self)\n\(self.scrollViewSuperview)")
-//        
-//        if !self.loadingImageView.layer.animationForKey("rotationAnimation")
-//            || !self.refreshing {
-//                return
-//            }
-//        
-//        self.loadingImageView.layer.removeAnimationForKey("rotationAnimation")
-//        self.refreshing = false
-//        
-//        UIView.animateWithDuration(
-//                                   0.3,
-//                                   delay: 0,
-//                                   options: UIViewAnimationOptions.BeginFromCurrentState|UIViewAnimationOptions.AllowUserInteraction,
-//                                   animations: {
-//                                       if !self.isBottom {
-//                                           self.scrollViewSuperview.contentInset.top = self.originalTopInset
-//                                       }
-//                                       else {
-//                                           self.scrollViewSuperview.contentInset.bottom = self.originalBottomInset
-//                                       }
-//                                   }, completion: nil)
-//        
-//        
-//        
-//        self.onceToken = 0
-//        self.waitingForResults = false
-//    }
-//    
-//    func startRefreshing() {
-//        if !!self.loadingImageView.layer.animationForKey("rotationAnimation")
-//            || self.refreshing {
-//                return
-//            }
-//        
-//        var rotationAnimation = CABasicAnimation(keyPath: "transform.rotation.z")
-//        rotationAnimation.toValue = M_PI * 2.1
-//        rotationAnimation.duration = 0.75
-//        rotationAnimation.removedOnCompletion = false
-//        rotationAnimation.cumulative = true;
-//        rotationAnimation.repeatCount = HUGE;
-//        
-//        self.loadingImageView.transform = CGAffineTransformMakeRotation(0)
-//        self.loadingImageView.layer.addAnimation(rotationAnimation, forKey: "rotationAnimation")
-//        
-//        self.refreshing = true
-//    }
-//    }
