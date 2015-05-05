@@ -18,6 +18,8 @@
 @property (nonatomic, strong) NSLayoutConstraint *viewVerticalConstraint;
 @property (nonatomic, strong) NSLayoutConstraint *viewHeightConstraint;
 
+@property (nonatomic, assign) BOOL refreshPossible;
+@property (nonatomic, assign) BOOL refreshing;
 @end
 
 @implementation NHRefreshView
@@ -116,8 +118,51 @@
                          options:NSKeyValueObservingOptionNew|NSKeyValueObservingOptionOld
                          context:nil];
 
+    [self.scrollView.panGestureRecognizer addTarget:self action:@selector(panGestureAction:)];
     self.hidden = YES;
     self.clipsToBounds = YES;
+}
+
+- (void)panGestureAction:(UIPanGestureRecognizer*)recognizer {
+
+    switch (recognizer.state) {
+        case UIGestureRecognizerStateBegan:
+        case UIGestureRecognizerStateChanged:
+            break;
+        case UIGestureRecognizerStateFailed:
+        case UIGestureRecognizerStateCancelled:
+        case UIGestureRecognizerStateEnded:
+
+//            scrollView.bounces = false
+            //                    UIView.animateWithDuration(
+            //                                               0.3,
+            //                                               delay: 0,
+            //                                               options: UIViewAnimationOptions.BeginFromCurrentState|UIViewAnimationOptions.AllowUserInteraction,
+            //                                               animations: {
+            //                                                   scrollView.contentInset.top = self.originalTopInset + self.loadingOffset
+            //                                                   scrollView.contentOffset.y = -(self.originalTopInset + self.loadingOffset)
+            //                                               }, completion: {
+            //                                                   _ in
+            //
+            //                                                   scrollView.bounces = true
+            //                                                   self.updateTopRefreshView(scrollView)
+            //                                                   dispatch_after(dispatch_get_time(0.15), dispatch_get_main_queue()) {
+            //                                                       //                                if self.refreshing {
+            //                                                       self.refreshAction?()
+            //                                                       //                                }
+            //
+            //                                                       return
+            //                                                   }
+            //                                                   return
+            //                                               })
+
+            if (self.refreshPossible) {
+                [self startRefreshing];
+            }
+            break;
+        default:
+            break;
+    }
 }
 
 - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context {
@@ -131,17 +176,30 @@
                     if (newValue.y < 0) {
                         self.viewHeightConstraint.constant = -newValue.y;
                         self.hidden = NO;
+
+                        if (!self.refreshing) {
+                            [self changeAlphaAndRotation:-newValue.y];
+
+                            if (newValue.y < -self.maxOffset) {
+                                self.refreshPossible = YES;
+                                [self startAnimating];
+                            }
+                            else {
+                                self.refreshPossible = NO;
+                                [self stopAnimating];
+                            }
+                        }
+
+                        [UIView animateWithDuration:0 animations:^{
+                            [self layoutIfNeeded];
+                        }];
                     }
                     else {
                         self.viewHeightConstraint.constant = 0;
                         self.hidden = YES;
+                        [self stopRefreshing];
                     }
 
-                    [self changeAlphaAndRotation:-newValue.y];
-
-                    [UIView animateWithDuration:0 animations:^{
-                        [self layoutIfNeeded];
-                    }];
                 }
                 else {
 
@@ -152,17 +210,88 @@
 }
 
 - (void)changeAlphaAndRotation:(CGFloat)offset {
+
+    if ([self.imageView.layer animationForKey:@"rotation"]) {
+        return;
+    }
+
     float value = offset / self.maxOffset;
 
     self.imageView.alpha = value;
 }
 
 - (void)startAnimating {
+    if ([self.imageView.layer animationForKey:@"rotation"]) {
+        return;
+    }
 
+    CABasicAnimation *animation = [CABasicAnimation animationWithKeyPath:@"transform.rotation.z"];
+    animation.toValue = @(M_PI * 2.0f);
+    animation.duration = 0.75;
+    animation.removedOnCompletion = NO;
+    animation.cumulative = YES;
+    animation.repeatCount = HUGE;
+
+    [self.imageView.layer addAnimation:animation forKey:@"rotation"];
 }
 
 - (void)stopAnimating {
-    
+    [self.imageView.layer removeAllAnimations];
+}
+
+- (void)startRefreshing {
+    if (!self.refreshPossible) {
+        return;
+    }
+
+    self.refreshing = YES;
+    self.refreshPossible = NO;
+
+    BOOL bouncePreviousValue = self.scrollView.bounces;
+    self.scrollView.bounces = NO;
+
+    if (self.direction == NHRefreshViewDirectionTop) {
+        [UIView animateWithDuration:0.3
+                              delay:0
+                            options:UIViewAnimationOptionBeginFromCurrentState
+                         animations:^{
+
+                             UIEdgeInsets inset = self.scrollView.contentInset;
+                             inset.top = 80;
+                             self.scrollView.contentInset = inset;
+                         } completion:^(BOOL finished) {
+                             self.scrollView.bounces = bouncePreviousValue;
+                         }];
+    }
+}
+
+- (void)stopRefreshing {
+    if (!self.refreshing
+        && !self.refreshPossible) {
+        return;
+    }
+
+    self.refreshPossible = NO;
+    self.refreshing = NO;
+
+    if (self.direction == NHRefreshViewDirectionTop) {
+        if (self.scrollView.contentInset.top == 0) {
+            return;
+        }
+    [UIView animateWithDuration:0
+                          delay:0
+                        options:UIViewAnimationOptionBeginFromCurrentState
+                     animations:^{
+
+                         UIEdgeInsets inset = self.scrollView.contentInset;
+                         inset.top = 0;
+                         self.scrollView.contentInset = inset;
+                     } completion:^(BOOL finished) {
+                     }];
+    }
+    else {
+
+    }
 }
 
 - (void)dealloc {
