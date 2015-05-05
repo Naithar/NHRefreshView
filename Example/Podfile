@@ -1,0 +1,12 @@
+source 'https://github.com/CocoaPods/Specs.git'
+
+target 'NHRefreshView', :exclusive => true do
+  pod "NHRefreshView", :path => "../"
+end
+
+target 'Tests', :exclusive => true do
+  pod "NHRefreshView", :path => "../"
+
+  pod 'Specta'
+  pod 'Expecta'
+end
