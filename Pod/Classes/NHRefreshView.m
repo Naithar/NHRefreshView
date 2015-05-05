@@ -103,7 +103,9 @@
                                                                    relatedBy:NSLayoutRelationEqual
                                                                       toItem:self.scrollView.subviews.firstObject
                                                                    attribute:NSLayoutAttributeTop
-                                                                  multiplier:1.0 constant:self.scrollView.contentSize.height];
+                                                                  multiplier:1.0
+                                                                    constant:MAX(self.scrollView.contentSize.height,
+                                                                                 self.scrollView.bounds.size.height)];
     }
 
     [self.scrollView addConstraint:self.viewVerticalConstraint];
@@ -155,6 +157,11 @@
                          options:NSKeyValueObservingOptionNew|NSKeyValueObservingOptionOld
                          context:nil];
 
+    [self.scrollView addObserver:self
+                      forKeyPath:@"bounds"
+                         options:NSKeyValueObservingOptionNew|NSKeyValueObservingOptionOld
+                         context:nil];
+
     [self.scrollView.panGestureRecognizer addTarget:self action:@selector(panGestureAction:)];
     self.containerView.hidden = YES;
     self.containerView.clipsToBounds = YES;
@@ -186,9 +193,10 @@
 
             if (!CGPointEqualToPoint(oldValue, newValue)) {
 
+                //(scrollView.contentOffset.y + scrollView.bounds.height) - max(scrollView.bounds.height, scrollView.contentSize.height + self.originalBottomInset)
                 CGFloat offset = self.direction == NHRefreshViewDirectionTop
                 ? -newValue.y
-                : (self.scrollView.bounds.size.height + self.scrollView.contentOffset.y) - self.scrollView.contentSize.height;
+                : (self.scrollView.bounds.size.height + self.scrollView.contentOffset.y) - MAX(self.scrollView.contentSize.height, self.scrollView.bounds.size.height);
 
                 if (offset > 0) {
                     self.viewHeightConstraint.constant = offset;
@@ -224,7 +232,17 @@
             CGSize newValue = [change[NSKeyValueChangeNewKey] CGSizeValue];
 
             if (!CGSizeEqualToSize(oldValue, newValue)) {
-                self.viewVerticalConstraint.constant = newValue.height;
+                self.viewVerticalConstraint.constant = MAX(newValue.height, self.scrollView.bounds.size.height);
+                [self.containerView.superview layoutIfNeeded];
+            }
+        }
+        else if ([keyPath isEqualToString:@"bounds"]
+              && self.direction == NHRefreshViewDirectionBottom) {
+            CGRect oldValue = [change[NSKeyValueChangeOldKey] CGRectValue];
+            CGRect newValue = [change[NSKeyValueChangeNewKey] CGRectValue];
+
+            if (!CGRectEqualToRect(oldValue, newValue)) {
+                self.viewVerticalConstraint.constant = MAX(newValue.size.height, self.scrollView.contentSize.height);
                 [self.containerView.superview layoutIfNeeded];
             }
         }
@@ -240,6 +258,9 @@
     float value = offset / self.maxOffset;
 
     self.imageView.alpha = value;
+
+    CGFloat anglePart = value * M_PI * 2;
+    self.imageView.transform = CGAffineTransformMakeRotation(anglePart);
 }
 
 - (void)startAnimating {
@@ -254,6 +275,7 @@
     animation.cumulative = YES;
     animation.repeatCount = HUGE;
 
+    self.imageView.transform = CGAffineTransformMakeRotation(0);
     [self.imageView.layer addAnimation:animation forKey:@"rotation"];
 }
 
@@ -277,7 +299,10 @@
                                               ? self.refreshOffset
                                               : 0, 0,
                                               (self.direction == NHRefreshViewDirectionBottom)
-                                              ? self.refreshOffset
+                                              ? MAX(self.refreshOffset,
+                                                    self.scrollView.bounds.size.height
+                                                    - self.scrollView.contentSize.height
+                                                    + self.refreshOffset)
                                               : 0, 0);
 
     BOOL refreshValue = YES;
@@ -297,6 +322,8 @@
 
     insets.top += self.refreshViewInsets.top;
     insets.bottom += self.refreshViewInsets.bottom;
+
+    //max(scrollView.bounds.height - scrollView.contentSize.height + self.loadingOffset, self.originalBottomInset + self.loadingOffset)
 
     [UIView animateWithDuration:0.3
                           delay:0
@@ -365,6 +392,7 @@
     [self.containerView removeFromSuperview];
     [self.scrollView removeObserver:self forKeyPath:@"contentOffset"];
     [self.scrollView removeObserver:self forKeyPath:@"contentSize"];
+    [self.scrollView removeObserver:self forKeyPath:@"bounds"];
 }
 
 @end
