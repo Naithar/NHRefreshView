@@ -132,30 +132,6 @@
         case UIGestureRecognizerStateFailed:
         case UIGestureRecognizerStateCancelled:
         case UIGestureRecognizerStateEnded:
-
-//            scrollView.bounces = false
-            //                    UIView.animateWithDuration(
-            //                                               0.3,
-            //                                               delay: 0,
-            //                                               options: UIViewAnimationOptions.BeginFromCurrentState|UIViewAnimationOptions.AllowUserInteraction,
-            //                                               animations: {
-            //                                                   scrollView.contentInset.top = self.originalTopInset + self.loadingOffset
-            //                                                   scrollView.contentOffset.y = -(self.originalTopInset + self.loadingOffset)
-            //                                               }, completion: {
-            //                                                   _ in
-            //
-            //                                                   scrollView.bounces = true
-            //                                                   self.updateTopRefreshView(scrollView)
-            //                                                   dispatch_after(dispatch_get_time(0.15), dispatch_get_main_queue()) {
-            //                                                       //                                if self.refreshing {
-            //                                                       self.refreshAction?()
-            //                                                       //                                }
-            //
-            //                                                       return
-            //                                                   }
-            //                                                   return
-            //                                               })
-
             if (self.refreshPossible) {
                 [self startRefreshing];
             }
@@ -191,10 +167,10 @@
                         }
 
                         [UIView animateWithDuration:0 animations:^{
-                            [self layoutIfNeeded];
+                            [self.superview layoutIfNeeded];
                         }];
                     }
-                    else {
+                    else if (!self.refreshing) {
                         self.viewHeightConstraint.constant = 0;
                         self.hidden = YES;
                         [self stopRefreshing];
@@ -255,14 +231,19 @@
                               delay:0
                             options:UIViewAnimationOptionBeginFromCurrentState
                          animations:^{
-
                              UIEdgeInsets inset = self.scrollView.contentInset;
                              inset.top = 80;
                              self.scrollView.contentInset = inset;
+                             [self.superview layoutIfNeeded];
                          } completion:^(BOOL finished) {
                              self.scrollView.bounces = bouncePreviousValue;
                          }];
     }
+    else {
+
+    }
+
+    [self performRefresh];
 }
 
 - (void)stopRefreshing {
@@ -278,20 +259,32 @@
         if (self.scrollView.contentInset.top == 0) {
             return;
         }
-    [UIView animateWithDuration:0
-                          delay:0
-                        options:UIViewAnimationOptionBeginFromCurrentState
-                     animations:^{
-
-                         UIEdgeInsets inset = self.scrollView.contentInset;
-                         inset.top = 0;
-                         self.scrollView.contentInset = inset;
-                     } completion:^(BOOL finished) {
-                     }];
+        [UIView animateWithDuration:0.3
+                              delay:0
+                            options:UIViewAnimationOptionBeginFromCurrentState
+                         animations:^{
+                             UIEdgeInsets inset = self.scrollView.contentInset;
+                             inset.top = 0;
+                             self.scrollView.contentInset = inset;
+                             [self.superview layoutIfNeeded];
+                             self.hidden = NO;
+                         } completion:^(BOOL finished) {
+                             self.hidden = YES;
+                             [self stopAnimating];
+                         }];
     }
     else {
-
+        
     }
+}
+
+- (void)performRefresh {
+    NSLog(@"refresh");
+    __weak __typeof(self) weakSelf = self;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        __strong __typeof(weakSelf) strongSelf = weakSelf;
+        [strongSelf stopRefreshing];
+    });
 }
 
 - (void)dealloc {
