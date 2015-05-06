@@ -17,7 +17,7 @@ typedef NS_ENUM(NSUInteger, NHRefreshViewDirection) {
 
 @class NHRefreshView;
 
-typedef void(^NHRefreshBlock)(NHRefreshView* refreshView);
+typedef void(^NHRefreshBlock)(void);
 
 @protocol NHRefreshViewDelegate <NSObject>
 

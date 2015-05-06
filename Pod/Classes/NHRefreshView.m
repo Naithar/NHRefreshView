@@ -70,6 +70,8 @@
     _refreshViewInsets = UIEdgeInsetsZero;
 
     self.containerView = [[UIView alloc] initWithFrame:CGRectZero];
+    self.containerView.opaque = YES;
+    self.containerView.backgroundColor = self.scrollView.backgroundColor;
     [self.containerView setTranslatesAutoresizingMaskIntoConstraints:NO];
     
     [self.scrollView.subviews.firstObject addSubview:self.containerView];
@@ -120,12 +122,13 @@
 
     [self.containerView addConstraint:self.viewHeightConstraint];
 
-    self.containerView.backgroundColor = [UIColor redColor];
+
 
     self.imageView = [[UIImageView alloc] initWithFrame:CGRectZero];
+    self.imageView.opaque = YES;
     self.imageView.image = [UIImage imageNamed:@"NHRefreshView.loading.png"];
     self.imageView.contentMode = UIViewContentModeCenter;
-    self.imageView.backgroundColor = [UIColor greenColor];
+    self.imageView.backgroundColor = self.scrollView.backgroundColor;
     [self.imageView setTranslatesAutoresizingMaskIntoConstraints:NO];
 
     [self.containerView addSubview:self.imageView];
@@ -160,6 +163,11 @@
     [self.scrollView addObserver:self
                       forKeyPath:@"bounds"
                          options:NSKeyValueObservingOptionNew|NSKeyValueObservingOptionOld
+                         context:nil];
+
+    [self.scrollView addObserver:self
+                      forKeyPath:@"backgroundColor"
+                         options:NSKeyValueObservingOptionNew
                          context:nil];
 
     [self.scrollView.panGestureRecognizer addTarget:self action:@selector(panGestureAction:)];
@@ -243,6 +251,12 @@
                 self.viewVerticalConstraint.constant = MAX(newValue.size.height, self.scrollView.contentSize.height);
                 [self.containerView.superview layoutIfNeeded];
             }
+        }
+        else if ([keyPath isEqualToString:@"backgroundColor"]) {
+            UIColor *newValue = change[NSKeyValueChangeNewKey];
+
+            self.containerView.backgroundColor = newValue;
+            self.imageView.backgroundColor = newValue;
         }
     }
 }
@@ -380,16 +394,17 @@
 
 - (void)performRefresh {
 
-    __weak __typeof(self) weakSelf = self;
-    if (weakSelf.refreshBlock) {
-        weakSelf.refreshBlock(weakSelf);
+    if (self.refreshBlock) {
+        self.refreshBlock();
     }
 }
 
 - (void)dealloc {
+    self.refreshBlock = nil;
     [self.containerView removeFromSuperview];
     [self.scrollView removeObserver:self forKeyPath:@"contentOffset"];
     [self.scrollView removeObserver:self forKeyPath:@"contentSize"];
+    [self.scrollView removeObserver:self forKeyPath:@"backgroundColor"];
     [self.scrollView removeObserver:self forKeyPath:@"bounds"];
 }
 
