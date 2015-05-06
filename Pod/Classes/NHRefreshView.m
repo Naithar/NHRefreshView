@@ -192,14 +192,12 @@
             CGPoint newValue = [change[NSKeyValueChangeNewKey] CGPointValue];
 
             if (!CGPointEqualToPoint(oldValue, newValue)) {
-
-                //(scrollView.contentOffset.y + scrollView.bounds.height) - max(scrollView.bounds.height, scrollView.contentSize.height + self.originalBottomInset)
                 CGFloat offset = self.direction == NHRefreshViewDirectionTop
-                ? -newValue.y
-                : (self.scrollView.bounds.size.height + self.scrollView.contentOffset.y) - MAX(self.scrollView.contentSize.height, self.scrollView.bounds.size.height);
+                ? (-newValue.y) - self.initialScrollViewInsets.top
+                : (self.scrollView.bounds.size.height + self.scrollView.contentOffset.y) - MAX(self.scrollView.contentSize.height, self.scrollView.bounds.size.height) - self.initialScrollViewInsets.bottom;
 
                 if (offset > 0) {
-                    self.viewHeightConstraint.constant = offset;
+                    self.viewHeightConstraint.constant = MAX(offset, self.refreshing ? self.refreshOffset : 0);
                     self.containerView.hidden = NO;
 
                     if (!self.refreshing) {
