@@ -31,7 +31,7 @@
     self.tableView.delegate = self;
     self.tableView.dataSource = self;
     self.tableView.tableFooterView = [UIView new];
-    self.tableView.contentInset = UIEdgeInsetsMake(100, 0, 100, 0);
+    self.tableView.contentInset = UIEdgeInsetsMake(0, 0, 100, 0);
 
 
 
@@ -64,7 +64,7 @@
 }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
-    return 20;
+    return 6;
 }
 
 
