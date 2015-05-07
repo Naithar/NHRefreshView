@@ -76,7 +76,7 @@
     self.containerView.opaque = YES;
     self.containerView.backgroundColor = self.scrollView.backgroundColor;
     [self.containerView setTranslatesAutoresizingMaskIntoConstraints:NO];
-    
+
     [self.scrollView.subviews.firstObject addSubview:self.containerView];
 
     [self.scrollView addConstraint:[NSLayoutConstraint constraintWithItem:self.containerView
@@ -109,8 +109,9 @@
                                                                       toItem:self.scrollView.subviews.firstObject
                                                                    attribute:NSLayoutAttributeTop
                                                                   multiplier:1.0
-                                                                    constant:MAX(self.scrollView.contentSize.height,
-                                                                                 self.scrollView.bounds.size.height)];
+                                                                    constant:MAX(
+                                                                                 self.scrollView.bounds.size.height - self.initialScrollViewInsets.bottom,
+                                                                                 self.scrollView.contentSize.height)];
     }
 
     [self.scrollView addConstraint:self.viewVerticalConstraint];
@@ -137,18 +138,18 @@
     [self.containerView addSubview:self.imageView];
 
     [self.containerView addConstraint:[NSLayoutConstraint constraintWithItem:self.imageView
-                                                     attribute:NSLayoutAttributeCenterX
-                                                     relatedBy:NSLayoutRelationEqual
-                                                        toItem:self.containerView
-                                                     attribute:NSLayoutAttributeCenterX
-                                                    multiplier:1.0 constant:0]];
+                                                                   attribute:NSLayoutAttributeCenterX
+                                                                   relatedBy:NSLayoutRelationEqual
+                                                                      toItem:self.containerView
+                                                                   attribute:NSLayoutAttributeCenterX
+                                                                  multiplier:1.0 constant:0]];
 
     [self.containerView addConstraint:[NSLayoutConstraint constraintWithItem:self.imageView
-                                                     attribute:NSLayoutAttributeCenterY
-                                                     relatedBy:NSLayoutRelationEqual
-                                                        toItem:self.containerView
-                                                     attribute:NSLayoutAttributeCenterY
-                                                    multiplier:1.0 constant:0]];
+                                                                   attribute:NSLayoutAttributeCenterY
+                                                                   relatedBy:NSLayoutRelationEqual
+                                                                      toItem:self.containerView
+                                                                   attribute:NSLayoutAttributeCenterY
+                                                                  multiplier:1.0 constant:0]];
 
     [self.scrollView setNeedsUpdateConstraints];
     [self.scrollView setNeedsLayout];
@@ -203,9 +204,23 @@
             CGPoint newValue = [change[NSKeyValueChangeNewKey] CGPointValue];
 
             if (!CGPointEqualToPoint(oldValue, newValue)) {
-                CGFloat offset = self.direction == NHRefreshViewDirectionTop
-                ? (-newValue.y) - self.initialScrollViewInsets.top
-                : (self.scrollView.bounds.size.height + self.scrollView.contentOffset.y) - MAX(self.scrollView.contentSize.height, self.scrollView.bounds.size.height) - self.initialScrollViewInsets.bottom;
+                CGFloat offset = 0;
+
+                if (self.direction == NHRefreshViewDirectionTop) {
+                    offset = (-newValue.y) - self.initialScrollViewInsets.top;
+                }
+                else {
+                    if (self.scrollView.bounds.size.height > self.scrollView.contentSize.height) {
+                        offset = newValue.y - MAX(0, self.scrollView.contentSize.height - (self.scrollView.bounds.size.height - self.initialScrollViewInsets.bottom));
+                    }
+                    else {
+                        offset = self.scrollView.bounds.size.height
+                        + newValue.y
+                        - self.scrollView.contentSize.height
+                        - self.initialScrollViewInsets.bottom;
+                    }
+                    //                : (self.scrollView.bounds.size.height + self.scrollView.contentOffset.y + (self.scrollView.bounds.size.height > self.scrollView.contentSize.height ? self.initialScrollViewInsets.bottom : 0)) - MAX(self.scrollView.contentSize.height, self.scrollView.bounds.size.height) - self.initialScrollViewInsets.bottom;
+                }
 
                 if (offset > 0) {
                     self.viewHeightConstraint.constant = MAX(offset, self.refreshing ? self.refreshOffset : 0);
@@ -236,22 +251,23 @@
             }
         }
         else if ([keyPath isEqualToString:@"contentSize"]
-            && self.direction == NHRefreshViewDirectionBottom) {
+                 && self.direction == NHRefreshViewDirectionBottom) {
             CGSize oldValue = [change[NSKeyValueChangeOldKey] CGSizeValue];
             CGSize newValue = [change[NSKeyValueChangeNewKey] CGSizeValue];
 
             if (!CGSizeEqualToSize(oldValue, newValue)) {
-                self.viewVerticalConstraint.constant = MAX(newValue.height, self.scrollView.bounds.size.height);
+                self.viewVerticalConstraint.constant = MAX(newValue.height, self.scrollView.bounds.size.height - self.initialScrollViewInsets.bottom);
                 [self.containerView.superview layoutIfNeeded];
             }
         }
         else if ([keyPath isEqualToString:@"bounds"]
-              && self.direction == NHRefreshViewDirectionBottom) {
+                 && self.direction == NHRefreshViewDirectionBottom) {
             CGRect oldValue = [change[NSKeyValueChangeOldKey] CGRectValue];
             CGRect newValue = [change[NSKeyValueChangeNewKey] CGRectValue];
 
             if (!CGRectEqualToRect(oldValue, newValue)) {
-                self.viewVerticalConstraint.constant = MAX(newValue.size.height, self.scrollView.contentSize.height);
+                self.viewVerticalConstraint.constant = MAX(newValue.size.height - self.initialScrollViewInsets.bottom, self.scrollView.contentSize.height);
+
                 [self.containerView.superview layoutIfNeeded];
             }
         }
@@ -298,6 +314,21 @@
     [self.imageView.layer removeAllAnimations];
 }
 
+- (void)setInitialScrollViewInsets:(UIEdgeInsets)initialScrollViewInsets {
+    if (UIEdgeInsetsEqualToEdgeInsets(_initialScrollViewInsets, initialScrollViewInsets)) {
+        return;
+    }
+
+    [self willChangeValueForKey:@"initialScrollViewInsets"];
+    _initialScrollViewInsets = initialScrollViewInsets;
+
+
+    self.viewVerticalConstraint.constant = MAX(self.scrollView.bounds.size.height - self.initialScrollViewInsets.bottom, self.scrollView.contentSize.height);
+    [self.containerView.superview layoutIfNeeded];
+
+    [self didChangeValueForKey:@"initialScrollViewInsets"];
+}
+
 - (void)startRefreshing {
     if (!self.refreshPossible) {
         return;
@@ -319,6 +350,7 @@
                                               (self.direction == NHRefreshViewDirectionBottom)
                                               ? MAX(self.refreshOffset,
                                                     self.scrollView.bounds.size.height
+                                                    - self.initialScrollViewInsets.bottom
                                                     - self.scrollView.contentSize.height
                                                     + self.refreshOffset)
                                               : 0, 0);
