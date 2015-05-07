@@ -8,6 +8,9 @@
 
 #import "NHRefreshView.h"
 
+#define SYSTEM_VERSION_GREATER_THAN_OR_EQUAL_TO(v) \
+([[[UIDevice currentDevice] systemVersion] compare:v options:NSNumericSearch] != NSOrderedAscending)
+
 @interface NHRefreshView ()
 
 @property (nonatomic, weak) UIScrollView *scrollView;
@@ -304,7 +307,10 @@
     self.refreshPossible = NO;
 
     BOOL bouncePreviousValue = self.scrollView.bounces;
-    self.scrollView.bounces = NO;
+
+    if (!SYSTEM_VERSION_GREATER_THAN_OR_EQUAL_TO(@"8.0")) {
+        self.scrollView.bounces = NO;
+    }
 
     UIEdgeInsets insets = self.scrollView.contentInset;
     self.refreshViewInsets = UIEdgeInsetsMake((self.direction == NHRefreshViewDirectionTop)
