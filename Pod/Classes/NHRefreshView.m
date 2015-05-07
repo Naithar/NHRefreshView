@@ -306,7 +306,7 @@
     BOOL bouncePreviousValue = self.scrollView.bounces;
     self.scrollView.bounces = NO;
 
-    UIEdgeInsets insets = self.initialScrollViewInsets;
+    UIEdgeInsets insets = self.scrollView.contentInset;
     self.refreshViewInsets = UIEdgeInsetsMake((self.direction == NHRefreshViewDirectionTop)
                                               ? self.refreshOffset
                                               : 0, 0,
@@ -332,8 +332,12 @@
         return;
     }
 
-    insets.top += self.refreshViewInsets.top;
-    insets.bottom += self.refreshViewInsets.bottom;
+    if (self.direction == NHRefreshViewDirectionTop) {
+        insets.top = self.initialScrollViewInsets.top + self.refreshViewInsets.top;
+    }
+    else {
+        insets.bottom = self.initialScrollViewInsets.bottom + self.refreshViewInsets.bottom;
+    }
 
     //max(scrollView.bounds.height - scrollView.contentSize.height + self.loadingOffset, self.originalBottomInset + self.loadingOffset)
 
