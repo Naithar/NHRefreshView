@@ -359,7 +359,6 @@
         return;
     }
 
-
     self.refreshPossible = NO;
     self.refreshing = NO;
 
@@ -387,7 +386,15 @@
                           delay:0
                         options:UIViewAnimationOptionBeginFromCurrentState
                      animations:^{
-                         self.scrollView.contentInset = self.initialScrollViewInsets;
+                         UIEdgeInsets newInsets = self.scrollView.contentInset;
+                         if (self.direction == NHRefreshViewDirectionTop) {
+                             newInsets.top = self.initialScrollViewInsets.top;
+                         }
+                         else {
+                             newInsets.bottom = self.initialScrollViewInsets.bottom;
+                         }
+
+                         self.scrollView.contentInset = newInsets;
                          [self.containerView.superview layoutIfNeeded];
                          self.containerView.hidden = NO;
                      } completion:^(BOOL finished) {

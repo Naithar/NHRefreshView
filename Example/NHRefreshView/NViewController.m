@@ -31,7 +31,7 @@
     self.tableView.delegate = self;
     self.tableView.dataSource = self;
     self.tableView.tableFooterView = [UIView new];
-    self.tableView.contentInset = UIEdgeInsetsMake(0, 0, 100, 0);
+    self.tableView.contentInset = UIEdgeInsetsMake(0, 0, 0, 0);
 
 
 
