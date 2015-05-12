@@ -26,6 +26,9 @@
 @property (nonatomic, assign) BOOL refreshing;
 
 @property (nonatomic, assign) UIEdgeInsets refreshViewInsets;
+
+@property (nonatomic, assign) NSTimeInterval refreshTimestamp;
+
 @end
 
 @implementation NHRefreshView
@@ -66,6 +69,7 @@
 
 - (void)commonInit {
 
+    _delayValue = 0.5;
     _maxOffset = 100;
     _refreshOffset = 80;
     _animationDuration = 0.75;
@@ -443,8 +447,21 @@
 
 - (void)performRefresh {
 
+    self.refreshTimestamp = [[NSDate date] timeIntervalSince1970];
+
+    NSTimeInterval refreshTimestamp = self.refreshTimestamp;
+
     if (self.refreshBlock) {
-        self.refreshBlock();
+        __weak __typeof(self) weakSelf = self;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(self.delayValue * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            __strong __typeof(weakSelf) strongSelf = weakSelf;
+
+            if (strongSelf.refreshTimestamp != refreshTimestamp) {
+                return;
+            }
+
+            strongSelf.refreshBlock();
+        });
     }
 }
 

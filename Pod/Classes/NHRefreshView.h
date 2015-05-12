@@ -45,6 +45,8 @@ typedef void(^NHRefreshBlock)(void);
 
 @property (nonatomic, assign) float animationDuration;
 
+@property (nonatomic, assign) double delayValue;
+
 - (instancetype)initWithScrollView:(UIScrollView*)scrollView;
 - (instancetype)initWithScrollView:(UIScrollView*)scrollView
                       refreshBlock:(NHRefreshBlock)refreshBlock;
