@@ -37,7 +37,7 @@
 
     __weak typeof(self) weakSelf = self;
 
-    self.topRefreshView = [[NHRefreshView alloc] initWithScrollView:self.tableView refreshBlock:^{
+    self.topRefreshView = [[NHRefreshView alloc] initWithScrollView:self.tableView refreshBlock:^(id _){
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(8 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
             [weakSelf.topRefreshView stopRefreshing];
         });
@@ -45,7 +45,7 @@
 
     self.topRefreshView.delegate = self;
 
-    self.bottomRefreshView = [[NHRefreshView alloc] initWithScrollView:self.tableView direction:NHRefreshViewDirectionBottom refreshBlock:^{
+    self.bottomRefreshView = [[NHRefreshView alloc] initWithScrollView:self.tableView direction:NHRefreshViewDirectionBottom refreshBlock:^(id _){
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(8 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
             [weakSelf.bottomRefreshView stopRefreshing];
         });

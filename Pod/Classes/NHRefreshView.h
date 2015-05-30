@@ -17,7 +17,7 @@ typedef NS_ENUM(NSUInteger, NHRefreshViewDirection) {
 
 @class NHRefreshView;
 
-typedef void(^NHRefreshBlock)(void);
+typedef void(^NHRefreshBlock)(UIScrollView* scrollView);
 
 @protocol NHRefreshViewDelegate <NSObject>
 
@@ -30,7 +30,8 @@ typedef void(^NHRefreshBlock)(void);
 
 @property (nonatomic, weak) id<NHRefreshViewDelegate> delegate;
 
-@property (nonatomic, readonly, weak) UIScrollView *scrollView;
+@property (nonatomic, readonly, strong) UIScrollView *scrollView;
+
 @property (nonatomic, readonly, strong) UIView *containerView;
 @property (nonatomic, readonly, strong) UIImageView *imageView;
 
