@@ -22,6 +22,8 @@
 @property (nonatomic, strong) NSLayoutConstraint *viewVerticalConstraint;
 @property (nonatomic, strong) NSLayoutConstraint *viewHeightConstraint;
 
+@property (nonatomic, strong) UIView *superview;
+
 @property (nonatomic, assign) BOOL refreshPossible;
 @property (nonatomic, assign) BOOL refreshing;
 
@@ -75,59 +77,77 @@
     _initialScrollViewInsets = self.scrollView.contentInset;
     _refreshViewInsets = UIEdgeInsetsZero;
     
-    self.containerView = [[UIView alloc] initWithFrame:CGRectZero];
+    self.containerView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, self.scrollView.bounds.size.width, 0)];
     self.containerView.opaque = YES;
     self.containerView.backgroundColor = self.scrollView.backgroundColor;
-    [self.containerView setTranslatesAutoresizingMaskIntoConstraints:NO];
     
-    [self.scrollView.subviews.firstObject addSubview:self.containerView];
+    if (SYSTEM_VERSION_GREATER_THAN_OR_EQUAL_TO(@"8.0")) {
+        [self.containerView setTranslatesAutoresizingMaskIntoConstraints:NO];
+    }
     
-    [self.scrollView addConstraint:[NSLayoutConstraint constraintWithItem:self.containerView
-                                                                attribute:NSLayoutAttributeLeft
-                                                                relatedBy:NSLayoutRelationEqual
-                                                                   toItem:self.scrollView.subviews.firstObject
-                                                                attribute:NSLayoutAttributeLeft
-                                                               multiplier:1.0 constant:0]];
+    self.superview = self.scrollView;
     
-    [self.scrollView addConstraint:[NSLayoutConstraint constraintWithItem:self.containerView
-                                                                attribute:NSLayoutAttributeWidth
-                                                                relatedBy:NSLayoutRelationEqual
-                                                                   toItem:self.scrollView.subviews.firstObject
-                                                                attribute:NSLayoutAttributeWidth
-                                                               multiplier:1.0
-                                                                 constant:0]];
+    [self.superview addSubview:self.containerView];
     
-    if (self.direction == NHRefreshViewDirectionTop) {
-        self.viewVerticalConstraint = [NSLayoutConstraint constraintWithItem:self.containerView
-                                                                   attribute: NSLayoutAttributeBottom
-                                                                   relatedBy:NSLayoutRelationEqual
-                                                                      toItem:self.scrollView.subviews.firstObject
-                                                                   attribute:NSLayoutAttributeTop
-                                                                  multiplier:1.0 constant:0];
+    if (SYSTEM_VERSION_GREATER_THAN_OR_EQUAL_TO(@"8.0")) {
+        
+        [self.scrollView addConstraint:[NSLayoutConstraint constraintWithItem:self.containerView
+                                                                    attribute:NSLayoutAttributeCenterX
+                                                                    relatedBy:NSLayoutRelationEqual
+                                                                       toItem:self.superview
+                                                                    attribute:NSLayoutAttributeCenterX
+                                                                   multiplier:1.0 constant:0]];
+        
+        [self.scrollView addConstraint:[NSLayoutConstraint constraintWithItem:self.containerView
+                                                                    attribute:NSLayoutAttributeWidth
+                                                                    relatedBy:NSLayoutRelationEqual
+                                                                       toItem:self.superview
+                                                                    attribute:NSLayoutAttributeWidth
+                                                                   multiplier:1.0
+                                                                     constant:0]];
+        
+        if (self.direction == NHRefreshViewDirectionTop) {
+            self.viewVerticalConstraint = [NSLayoutConstraint constraintWithItem:self.containerView
+                                                                       attribute: NSLayoutAttributeBottom
+                                                                       relatedBy:NSLayoutRelationEqual
+                                                                          toItem:self.superview
+                                                                       attribute:NSLayoutAttributeTop
+                                                                      multiplier:1.0 constant:0];
+        }
+        else {
+            self.viewVerticalConstraint = [NSLayoutConstraint constraintWithItem:self.containerView
+                                                                       attribute: NSLayoutAttributeTop
+                                                                       relatedBy:NSLayoutRelationEqual
+                                                                          toItem:self.superview
+                                                                       attribute:NSLayoutAttributeTop
+                                                                      multiplier:1.0
+                                                                        constant:MAX(
+                                                                                     self.scrollView.bounds.size.height - self.initialScrollViewInsets.bottom,
+                                                                                     self.scrollView.contentSize.height)];
+        }
+        
+        [self.scrollView addConstraint:self.viewVerticalConstraint];
+        
+        
+        self.viewHeightConstraint = [NSLayoutConstraint constraintWithItem:self.containerView
+                                                                 attribute:NSLayoutAttributeHeight
+                                                                 relatedBy:NSLayoutRelationEqual
+                                                                    toItem:self.containerView
+                                                                 attribute:NSLayoutAttributeHeight
+                                                                multiplier:0
+                                                                  constant:0];
+        
+        [self.containerView addConstraint:self.viewHeightConstraint];
     }
     else {
-        self.viewVerticalConstraint = [NSLayoutConstraint constraintWithItem:self.containerView
-                                                                   attribute: NSLayoutAttributeTop
-                                                                   relatedBy:NSLayoutRelationEqual
-                                                                      toItem:self.scrollView.subviews.firstObject
-                                                                   attribute:NSLayoutAttributeTop
-                                                                  multiplier:1.0
-                                                                    constant:MAX(
-                                                                                 self.scrollView.bounds.size.height - self.initialScrollViewInsets.bottom,
-                                                                                 self.scrollView.contentSize.height)];
+        CGRect containerViewFrame = self.containerView.frame;
+        containerViewFrame.origin.y = MAX(self.scrollView.bounds.size.height - self.initialScrollViewInsets.bottom,
+                                          self.scrollView.contentSize.height);
+        containerViewFrame.size.height = 0;
+        containerViewFrame.size.width = self.scrollView.bounds.size.width;
+        self.containerView.frame = containerViewFrame;
     }
     
-    [self.scrollView addConstraint:self.viewVerticalConstraint];
-    
-    self.viewHeightConstraint = [NSLayoutConstraint constraintWithItem:self.containerView
-                                                             attribute:NSLayoutAttributeHeight
-                                                             relatedBy:NSLayoutRelationEqual
-                                                                toItem:self.containerView
-                                                             attribute:NSLayoutAttributeHeight
-                                                            multiplier:0
-                                                              constant:0];
-    
-    [self.containerView addConstraint:self.viewHeightConstraint];
     
     
     
@@ -225,7 +245,21 @@
                 }
                 
                 if (offset > 0) {
-                    self.viewHeightConstraint.constant = MAX(offset, self.refreshing ? self.refreshOffset : 0);
+                    
+                    if (SYSTEM_VERSION_GREATER_THAN_OR_EQUAL_TO(@"8.0")) {
+                        self.viewHeightConstraint.constant = MAX(offset, self.refreshing ? self.refreshOffset : 0);
+                    }
+                    else {
+                        CGFloat value = [self calculateInsetValue];
+                        CGRect containerViewFrame = self.containerView.frame;
+                        containerViewFrame.origin.y = value + (self.direction == NHRefreshViewDirectionBottom
+                                                               ? offset
+                                                               : - offset);
+                        containerViewFrame.size.height = offset;
+                        containerViewFrame.size.width = self.scrollView.bounds.size.width;
+                        self.containerView.frame = containerViewFrame;
+                    }
+                    
                     self.containerView.hidden = NO;
                     
                     if (!self.refreshing) {
@@ -242,11 +276,23 @@
                     }
                     
                     [UIView animateWithDuration:0 animations:^{
-                        [self.containerView.superview layoutIfNeeded];
+                        [self.scrollView layoutIfNeeded];
                     }];
                 }
                 else if (!self.refreshing) {
-                    self.viewHeightConstraint.constant = 0;
+                    
+                    if (SYSTEM_VERSION_GREATER_THAN_OR_EQUAL_TO(@"8.0")) {
+                        self.viewHeightConstraint.constant = 0;
+                    }
+                    else {
+                        CGFloat value = [self calculateInsetValue];
+                        CGRect containerViewFrame = self.containerView.frame;
+                        containerViewFrame.origin.y = value;
+                        containerViewFrame.size.height = 0;
+                        containerViewFrame.size.width = self.scrollView.bounds.size.width;
+                        self.containerView.frame = containerViewFrame;
+                    }
+                    
                     self.containerView.hidden = YES;
                     [self stopRefreshing];
                 }
@@ -258,7 +304,21 @@
             CGSize newValue = [change[NSKeyValueChangeNewKey] CGSizeValue];
             
             if (!CGSizeEqualToSize(oldValue, newValue)) {
-                self.viewVerticalConstraint.constant = MAX(newValue.height, self.scrollView.bounds.size.height - self.initialScrollViewInsets.bottom);
+                CGFloat value = MAX(newValue.height, self.scrollView.bounds.size.height - self.initialScrollViewInsets.bottom);
+                
+                if (SYSTEM_VERSION_GREATER_THAN_OR_EQUAL_TO(@"8.0")) {
+                    self.viewVerticalConstraint.constant = value;
+                }
+                else {
+                    CGRect containerViewFrame = self.containerView.frame;
+                    containerViewFrame.origin.y = value + (self.direction == NHRefreshViewDirectionBottom
+                                                           ? 0
+                                                           : -self.containerView.frame.size.height);
+                    containerViewFrame.size.width = self.scrollView.bounds.size.width;
+                    self.containerView.frame = containerViewFrame;
+                }
+                
+                
                 [self.containerView.superview layoutIfNeeded];
             }
         }
@@ -268,7 +328,20 @@
             CGRect newValue = [change[NSKeyValueChangeNewKey] CGRectValue];
             
             if (!CGRectEqualToRect(oldValue, newValue)) {
-                self.viewVerticalConstraint.constant = MAX(newValue.size.height - self.initialScrollViewInsets.bottom, self.scrollView.contentSize.height);
+                CGFloat value = MAX(newValue.size.height - self.initialScrollViewInsets.bottom, self.scrollView.contentSize.height);
+                
+                if (SYSTEM_VERSION_GREATER_THAN_OR_EQUAL_TO(@"8.0")) {
+                    self.viewVerticalConstraint.constant = value;
+                }
+                else {
+                    CGRect containerViewFrame = self.containerView.frame;
+                    containerViewFrame.origin.y = value + (self.direction == NHRefreshViewDirectionBottom
+                                                           ? 0
+                                                           : -self.containerView.frame.size.height);
+                    containerViewFrame.size.width = self.scrollView.bounds.size.width;
+                    self.containerView.frame = containerViewFrame;
+                }
+                
                 
                 [self.containerView.superview layoutIfNeeded];
             }
@@ -316,6 +389,15 @@
     [self.imageView.layer removeAllAnimations];
 }
 
+- (CGFloat)calculateInsetValue {
+    if (self.direction == NHRefreshViewDirectionTop) {
+        return 0;
+    }
+    else {
+        return MAX(self.scrollView.bounds.size.height - self.initialScrollViewInsets.bottom, self.scrollView.contentSize.height);
+    }
+}
+
 - (void)setInitialScrollViewInsets:(UIEdgeInsets)initialScrollViewInsets {
     if (UIEdgeInsetsEqualToEdgeInsets(_initialScrollViewInsets, initialScrollViewInsets)) {
         return;
@@ -324,9 +406,19 @@
     [self willChangeValueForKey:@"initialScrollViewInsets"];
     _initialScrollViewInsets = initialScrollViewInsets;
     
-    
-    self.viewVerticalConstraint.constant = MAX(self.scrollView.bounds.size.height - self.initialScrollViewInsets.bottom, self.scrollView.contentSize.height);
-    [self.containerView.superview layoutIfNeeded];
+    if (SYSTEM_VERSION_GREATER_THAN_OR_EQUAL_TO(@"8.0")) {
+        self.viewVerticalConstraint.constant = [self calculateInsetValue];
+    }
+    else {
+        CGRect containerViewFrame = self.containerView.frame;
+        containerViewFrame.origin.y = [self calculateInsetValue] + (self.direction == NHRefreshViewDirectionBottom
+                                                                    ? 0
+                                                                    : -self.containerView.frame.size.height);
+        containerViewFrame.size.width = self.scrollView.bounds.size.width;
+        self.containerView.frame = containerViewFrame;
+        
+        [self.containerView.superview layoutIfNeeded];
+    }
     
     [self didChangeValueForKey:@"initialScrollViewInsets"];
 }
@@ -378,8 +470,6 @@
     else {
         insets.bottom = self.initialScrollViewInsets.bottom + self.refreshViewInsets.bottom;
     }
-    
-    //max(scrollView.bounds.height - scrollView.contentSize.height + self.loadingOffset, self.originalBottomInset + self.loadingOffset)
     
     [UIView animateWithDuration:0.3
                           delay:0
@@ -467,6 +557,7 @@
 - (void)dealloc {
     self.refreshBlock = nil;
     [self.containerView removeFromSuperview];
+    self.superview = nil;
     [self.scrollView removeObserver:self forKeyPath:@"contentOffset"];
     [self.scrollView removeObserver:self forKeyPath:@"contentSize"];
     [self.scrollView removeObserver:self forKeyPath:@"backgroundColor"];

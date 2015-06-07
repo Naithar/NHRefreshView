@@ -48,6 +48,8 @@ typedef void(^NHRefreshBlock)(UIScrollView* scrollView);
 
 @property (nonatomic, assign) double delayValue;
 
+@property (nonatomic, readonly, assign) BOOL refreshing;
+
 - (instancetype)initWithScrollView:(UIScrollView*)scrollView;
 - (instancetype)initWithScrollView:(UIScrollView*)scrollView
                       refreshBlock:(NHRefreshBlock)refreshBlock;
