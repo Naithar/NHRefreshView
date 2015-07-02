@@ -11,6 +11,12 @@
 #define SYSTEM_VERSION_GREATER_THAN_OR_EQUAL_TO(v) \
 ([[[UIDevice currentDevice] systemVersion] compare:v options:NSNumericSearch] != NSOrderedAscending)
 
+#define image(name) \
+[[UIImage alloc] initWithContentsOfFile: \
+[[NSBundle bundleForClass:[NHRefreshView class]]\
+pathForResource:name ofType:@"png"]]
+
+
 @interface NHRefreshView ()
 
 @property (nonatomic, strong) UIScrollView *scrollView;
@@ -153,7 +159,7 @@
     
     self.imageView = [[UIImageView alloc] initWithFrame:CGRectZero];
     self.imageView.opaque = YES;
-    self.imageView.image = [UIImage imageNamed:@"NHRefreshView.loading.png"];
+    self.imageView.image = image(@"NHRefreshView.loading");
     self.imageView.contentMode = UIViewContentModeCenter;
     self.imageView.backgroundColor = self.scrollView.backgroundColor;
     [self.imageView setTranslatesAutoresizingMaskIntoConstraints:NO];
