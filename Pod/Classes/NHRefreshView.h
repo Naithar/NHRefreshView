@@ -62,4 +62,6 @@ typedef void(^NHRefreshBlock)(UIScrollView* scrollView);
 
 
 - (void)stopRefreshing;
+- (void)clearObservers;
+
 @end
