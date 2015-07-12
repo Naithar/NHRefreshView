@@ -560,7 +560,7 @@ pathForResource:name ofType:@"png"]]
     }
 }
 
-- (void)dealloc {
+- (void)clearObservers {
     self.refreshBlock = nil;
     [self.containerView removeFromSuperview];
     self.superview = nil;
@@ -568,6 +568,10 @@ pathForResource:name ofType:@"png"]]
     [self.scrollView removeObserver:self forKeyPath:@"contentSize"];
     [self.scrollView removeObserver:self forKeyPath:@"backgroundColor"];
     [self.scrollView removeObserver:self forKeyPath:@"bounds"];
+}
+
+- (void)dealloc {
+    [self clearObservers];
 }
 
 @end
