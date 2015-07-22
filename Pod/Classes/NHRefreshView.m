@@ -285,7 +285,8 @@ pathForResource:name ofType:@"png"]]
                         [self.scrollView layoutIfNeeded];
                     }];
                 }
-                else if (!self.refreshing) {
+                else if (!self.refreshing
+                         && !self.refreshPossible) {
                     
                     if (SYSTEM_VERSION_GREATER_THAN_OR_EQUAL_TO(@"8.0")) {
                         self.viewHeightConstraint.constant = 0;
