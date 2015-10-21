@@ -569,6 +569,7 @@ pathForResource:name ofType:@"png"]]
     [self.scrollView removeObserver:self forKeyPath:@"contentSize"];
     [self.scrollView removeObserver:self forKeyPath:@"backgroundColor"];
     [self.scrollView removeObserver:self forKeyPath:@"bounds"];
+    self.scrollView = nil;
 }
 
 - (void)dealloc {
