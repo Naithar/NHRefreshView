@@ -16,6 +16,12 @@
 [[NSBundle bundleForClass:[NHRefreshView class]]\
 pathForResource:name ofType:@"png"]]
 
+#define CLAMP(x, low, high) ({\
+__typeof__(x) __x = (x); \
+__typeof__(low) __low = (low);\
+__typeof__(high) __high = (high);\
+__x > __high ? __high : (__x < __low ? __low : __x);\
+})
 
 @interface NHRefreshView ()
 
@@ -302,6 +308,18 @@ pathForResource:name ofType:@"png"]]
                     
                     self.containerView.hidden = YES;
                     [self stopRefreshing];
+                }
+                
+                if (self.refreshing
+                    && self.direction == NHRefreshViewDirectionTop) {
+                    
+                    CGFloat newTopInset = CLAMP(-newValue.y, 0, self.refreshOffset);
+                    UIEdgeInsets contentInset = self.scrollView.contentInset;
+                    contentInset.top = newTopInset;
+                    
+                    [UIView animateWithDuration:0 animations:^{
+                        self.scrollView.contentInset = contentInset;
+                    }];
                 }
             }
         }
