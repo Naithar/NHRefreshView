@@ -252,7 +252,8 @@ __x > __high ? __high : (__x < __low ? __low : __x);\
                         offset = self.scrollView.bounds.size.height
                         + newValue.y
                         - self.scrollView.contentSize.height
-                        - self.initialScrollViewInsets.bottom;
+                        - self.initialScrollViewInsets.bottom
+                        - self.initialScrollViewInsets.top;
                     }
                 }
                 
@@ -329,7 +330,7 @@ __x > __high ? __high : (__x < __low ? __low : __x);\
             CGSize newValue = [change[NSKeyValueChangeNewKey] CGSizeValue];
             
             if (!CGSizeEqualToSize(oldValue, newValue)) {
-                CGFloat value = MAX(newValue.height, self.scrollView.bounds.size.height - self.initialScrollViewInsets.bottom);
+                CGFloat value = MAX(newValue.height + self.initialScrollViewInsets.top, self.scrollView.bounds.size.height - self.initialScrollViewInsets.bottom);
                 
                 if (SYSTEM_VERSION_GREATER_THAN_OR_EQUAL_TO(@"8.0")) {
                     self.viewVerticalConstraint.constant = value;
@@ -353,7 +354,7 @@ __x > __high ? __high : (__x < __low ? __low : __x);\
             CGRect newValue = [change[NSKeyValueChangeNewKey] CGRectValue];
             
             if (!CGRectEqualToRect(oldValue, newValue)) {
-                CGFloat value = MAX(newValue.size.height - self.initialScrollViewInsets.bottom, self.scrollView.contentSize.height);
+                CGFloat value = MAX(newValue.size.height - self.initialScrollViewInsets.bottom, self.scrollView.contentSize.height + self.initialScrollViewInsets.top);
                 
                 if (SYSTEM_VERSION_GREATER_THAN_OR_EQUAL_TO(@"8.0")) {
                     self.viewVerticalConstraint.constant = value;
@@ -419,7 +420,7 @@ __x > __high ? __high : (__x < __low ? __low : __x);\
         return 0;
     }
     else {
-        return MAX(self.scrollView.bounds.size.height - self.initialScrollViewInsets.bottom, self.scrollView.contentSize.height);
+        return MAX(self.scrollView.bounds.size.height - self.initialScrollViewInsets.bottom, self.scrollView.contentSize.height+ self.initialScrollViewInsets.top);
     }
 }
 
